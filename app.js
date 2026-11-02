@@ -53,6 +53,7 @@
     render();
   }
   function tickOffline() {
+    document.body.classList.toggle('is-offline', failing);
     if (!failing) { offline.classList.add('hidden'); return; }
     const n = Math.max(0, Math.ceil((nextTry - Date.now()) / 1000));
     const last = D.state ? tm(D.state.generatedAt) : (lastOk ? tm(new Date(lastOk).toISOString()) : 'never');
@@ -183,6 +184,7 @@
       ${groups}`;
   }
   function coinScreen(c) {
+    if (c && c.missing) return `<button class="back" data-act="back">‹ Back</button><div class="empty">No data for this coin yet</div>`;
     if (!c) return `<button class="back" data-act="back">‹ Back</button>${skel(40, '60%')}${skel(60, '50%')}${skel(260)}${skel(120)}`;
     const p = c.position, ch = p ? (c.price / p.entryPrice - 1) * 100 : null, au = c.audit;
     const age = c.ageHours == null ? '' : ` · ${c.ageHours < 1 ? Math.round(c.ageHours * 60) + 'm' : Math.round(c.ageHours) + 'h'} old`;
@@ -206,7 +208,7 @@
   }
   function auditScreen(c) {
     if (!c) return `<button class="back" data-act="back">‹ Back</button>${skel(200)}${skel(300)}`;
-    const a = c.audit, name = esc(c.name || c.mint.slice(0, 8));
+    const a = c.audit, name = esc(c.name || (c.mint || '').slice(0, 8));
     if (!a) return `<button class="back" data-act="back">‹ Back</button><div class="empty">No coin taken apart yet</div>`;
     const cls = l => l.pass === 1 ? 'ok' : l.pass === 0 ? 'bad' : 'nc';
     const on = D.account ? D.account.settings.auditor.find(i => i.key === 'auditor.enabled').value : true;
@@ -226,11 +228,12 @@
   function render() {
     tickOffline();
     document.querySelectorAll('.tabbar button').forEach(b => b.classList.toggle('on', b.dataset.tab === tab));
+    document.body.classList.toggle('in-overlay', !!(route && route.screen));
     if (route && route.screen) {
       overlay.classList.remove('hidden');
       const c = D.coins[route.key];
       overlay.innerHTML = route.screen === 'coin' ? coinScreen(c) : auditScreen(c);
-      if (c && route.screen === 'coin') {
+      if (c && !c.missing && route.screen === 'coin') {
         const p = c.position, lines = [];
         if (p) { lines.push({ price: p.exitLine, color: '#ff9f0a', label: 'Risk trailing stop' }); lines.push({ price: p.entryPrice, color: 'rgba(235,235,245,0.3)', label: 'Entry', dash: [2, 4] }); }
         Charts.candles($('#cv-coin'), c.candles, lines);
@@ -251,7 +254,7 @@
   async function openCoin(screen, key, mint) {
     if (!key && mint) key = await coinKey(mint);
     route = { screen, key }; render();
-    try { D.coins[key] = await getJSON(`coin/${key}.json`); } catch (e) { D.coins[key] = D.coins[key] || null; }
+    try { D.coins[key] = await getJSON(`coin/${key}.json`); } catch (e) { D.coins[key] = D.coins[key] || (failing ? null : { missing: true }); }
     render();
   }
   function toast(t) { const d = document.createElement('div'); d.className = 'toast'; d.textContent = t; document.body.appendChild(d); setTimeout(() => d.remove(), 1800); }
@@ -259,6 +262,7 @@
     const ps = (D.state && D.state.pushes) || [];
     if (ps.length) localStorage.setItem('lastPush', ps[0].id);
     route = { screen: null };
+    document.body.classList.add('in-overlay');
     overlay.classList.remove('hidden');
     overlay.innerHTML = `<button class="back" data-act="back">‹ Back</button><h1 class="title">Pushes</h1>${ps.length ? `<ul class="rows">${ps.map(p =>
       `<li class="row">${ext(p.link, `<div class="mid"><div class="t">${esc(p.text)}</div><div class="s">${tm(p.ts)}</div></div>`)}</li>`).join('')}</ul>` : '<div class="empty">No pushes yet</div>'}`;
@@ -272,7 +276,7 @@
     if (t.dataset.settings) { tab = 'account'; render(); const el = document.getElementById('set-' + t.dataset.settings); if (el) el.scrollIntoView(); return; }
     if (t.dataset.open) { openCoin(t.dataset.open, t.dataset.key, t.dataset.mint); return; }
     const a = t.dataset.act;
-    if (a === 'back') { route = null; overlay.classList.add('hidden'); render(); }
+    if (a === 'back') { route = null; overlay.classList.add('hidden'); render(); window.scrollTo(0, 0); }
     else if (a === 'more') { actShown += 30; render(); }
     else if (a === 'search') { const i = $('#search'); i.classList.toggle('hidden'); if (!i.classList.contains('hidden')) i.focus(); else { searchQ = ''; render(); } }
     else if (a === 'bell') { showPushes(); }

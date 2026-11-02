@@ -112,3 +112,7 @@ background:rgba(22,22,24,.72);backdrop-filter:blur(20px) saturate(180%);-webkit-
 .note{color:var(--t2);font-size:13px;margin:6px 0 16px}
 .toast{position:fixed;left:50%;bottom:calc(100px + var(--sb));transform:translateX(-50%);background:var(--c2);padding:10px 16px;border-radius:20px;font-size:14px;z-index:50}
 @media (prefers-reduced-motion: reduce){*{animation:none!important;transition:none!important}}
+.offline{pointer-events:none}
+body.is-offline .view,body.is-offline .overlay{padding-top:calc(var(--st) + 44px)}
+body.in-overlay .view,body.in-overlay .tabbar{display:none}
+body.in-overlay .overlay{position:static;min-height:100vh}
